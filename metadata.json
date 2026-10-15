@@ -1,0 +1,5 @@
+{
+  "name": "Bayani Alert",
+  "description": "Discreet wearable emergency alert and public safety monitoring system for women and children protection (VAWC) in the Philippines.",
+  "requestFramePermissions": ["geolocation"]
+}

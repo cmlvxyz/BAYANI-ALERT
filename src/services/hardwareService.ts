@@ -63,6 +63,7 @@ export const BALANGA_LOCATION: LocationOverride = {
   label: 'Balanga City',
   city: 'Balanga City',
   barangay: 'Bataan',
+  address: 'Balanga City, Bataan',
 };
 
 class HardwareService {

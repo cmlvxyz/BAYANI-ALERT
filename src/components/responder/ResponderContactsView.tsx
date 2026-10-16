@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Phone, Shield, HeartPulse, Scale, ExternalLink } from 'lucide-react';
+import { Users, Phone, Shield, HeartPulse, Scale } from 'lucide-react';
 
 export const ResponderContactsView: React.FC = () => {
   const directory = [
@@ -34,13 +34,14 @@ export const ResponderContactsView: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div>
-        <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <Users className="w-5 h-5 text-blue-600" />
-          <span>PUBLIC SAFETY RESPONSE DIRECTORY</span>
+        <h2 className="text-lg font-black text-ink tracking-tight flex items-center gap-2">
+          <Users className="w-5 h-5 text-brand-600" />
+          <span>Public Safety Response Directory</span>
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted">
           Official liaison channels for inter-agency coordination (LGU, PNP, DSWD, Red Cross)
         </p>
       </div>
@@ -49,39 +50,44 @@ export const ResponderContactsView: React.FC = () => {
         {directory.map((group, idx) => {
           const Icon = group.icon;
           return (
-            <div key={idx} className="bg-white border border-slate-200 rounded-3xl p-5 space-y-3 shadow-md">
-              <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-                <Icon className="w-4 h-4 text-blue-600" />
-                <h3 className="font-extrabold text-slate-900 text-sm uppercase tracking-wider">
+            <section key={idx} className="rc-panel p-5 space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-line">
+                <div className="w-7 h-7 rounded-lg bg-brand-50 text-brand-600 flex items-center justify-center border border-brand-100">
+                  <Icon className="w-4 h-4" />
+                </div>
+                <h3 className="font-extrabold text-ink text-sm uppercase tracking-wider">
                   {group.category}
                 </h3>
               </div>
 
               <div className="space-y-2.5">
                 {group.items.length === 0 ? (
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-200 text-center">
-                    <p className="text-[11px] text-slate-400 font-bold">
+                  <div className="p-4 rounded-card bg-slate-50 border border-dashed border-line text-center">
+                    <p className="text-[11px] text-muted font-bold">
                       No entries yet — directory data will appear here when connected.
                     </p>
                   </div>
-                ) : group.items.map((item, i) => (
-                  <div key={i} className="p-3 rounded-2xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
-                    <div className="font-bold text-slate-700">{item.name}</div>
-                    <div className="text-[11px] text-slate-500">{item.desc}</div>
-                    <div className="pt-1 flex items-center justify-between font-mono text-[11px]">
-                      <span className="text-blue-600 font-bold">{item.contact}</span>
-                      <a
-                        href={`tel:${item.contact}`}
-                        className="p-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                        title="Call"
-                      >
-                        <Phone className="w-3 h-3" />
-                      </a>
+                ) : (
+                  group.items.map((item, i) => (
+                    <div key={i} className="p-3 rounded-card bg-slate-50 border border-line space-y-1 text-xs">
+                      <div className="font-bold text-slate-700">{item.name}</div>
+                      <div className="text-[11px] text-muted">{item.desc}</div>
+                      <div className="pt-1 flex items-center justify-between font-mono text-[11px]">
+                        <span className="text-brand-600 font-bold">{item.contact}</span>
+                        <a
+                          href={`tel:${item.contact}`}
+                          className="rc-focus-ring p-1.5 rounded-lg bg-brand-600 text-white hover:bg-brand-700 active:scale-95 transition-all"
+                          title={`Call ${item.name}`}
+                          aria-label={`Call ${item.name}`}
+                        >
+                          <Phone className="w-3 h-3" />
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
-            </div>
+            </section>
           );
         })}
       </div>

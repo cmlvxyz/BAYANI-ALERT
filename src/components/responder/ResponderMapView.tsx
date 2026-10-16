@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { MapPin, Navigation, ExternalLink } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { MapPin, Navigation, ExternalLink, Layers, Radar, ChevronLeft } from 'lucide-react';
 import { Incident, ResponderAgent } from '../../types';
 import { LiveGoogleMap, FALLBACK_COORDS } from '../LiveGoogleMap';
 import { watchGeolocation, ResolvedLocation } from '../../services/geolocationService';
@@ -13,15 +13,24 @@ interface ResponderMapViewProps {
   focusedIncident?: Incident | null;
 }
 
+const hasCoords = (inc: Incident | null | undefined): boolean =>
+  !!inc &&
+  typeof inc.location?.lat === 'number' &&
+  typeof inc.location?.lng === 'number' &&
+  (inc.location.lat !== 0 || inc.location.lng !== 0);
+
 export const ResponderMapView: React.FC<ResponderMapViewProps> = ({
   activeIncident,
   incidents,
   responders,
   focusedIncident = null,
 }) => {
-  const [selectedPin, setSelectedPin] = useState<string | null>(activeIncident?.id || null);
   const [gps, setGps] = useState<ResolvedLocation | null>(null);
   const [forceMap, setForceMap] = useState(false);
+  // Selected pin id — starts on the incident that opened this view.
+  const [selectedId, setSelectedId] = useState<string | null>(
+    focusedIncident?.id ?? activeIncident?.id ?? null,
+  );
 
   useEffect(() => {
     const cleanup = watchGeolocation(
@@ -31,15 +40,23 @@ export const ResponderMapView: React.FC<ResponderMapViewProps> = ({
     return cleanup;
   }, []);
 
+  // When a new incident is opened from another screen, follow it.
+  useEffect(() => {
+    if (focusedIncident?.id) setSelectedId(focusedIncident.id);
+  }, [focusedIncident?.id]);
+
   const override = hardwareService.getLocationOverride();
 
-  // The incident to inspect: explicitly opened incident, else the live one.
-  const viewIncident = focusedIncident ?? activeIncident;
-  const hasIncidentCoords =
-    !!viewIncident &&
-    typeof viewIncident.location?.lat === 'number' &&
-    typeof viewIncident.location?.lng === 'number' &&
-    (viewIncident.location.lat !== 0 || viewIncident.location.lng !== 0);
+  // Incidents that actually carry usable coordinates — the only ones we can pin.
+  const pinnedIncidents = useMemo(() => incidents.filter(hasCoords), [incidents]);
+
+  const selectedIncident =
+    incidents.find((i) => i.id === selectedId) ??
+    (hasCoords(focusedIncident) ? focusedIncident : null) ??
+    (hasCoords(activeIncident) ? activeIncident : null);
+
+  const viewIncident = selectedIncident;
+  const hasIncidentCoords = hasCoords(viewIncident);
 
   // Focus the map on the incident's own GPS coordinates (dynamic — never hardcoded).
   const mapLat = hasIncidentCoords
@@ -68,38 +85,38 @@ export const ResponderMapView: React.FC<ResponderMapViewProps> = ({
     setForceMap(false);
   }, [viewIncident?.id]);
 
+  const onDutyUnits = responders.filter((r) => r.status !== 'Off Duty');
+
   return (
     <div className="space-y-4">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <MapPin className="w-5 h-5 text-red-500" />
-            <span>TACTICAL DISPATCH MAP</span>
+          <h2 className="text-lg font-black text-ink tracking-tight flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-emergency" />
+            <span>Tactical Dispatch Map</span>
           </h2>
-          <p className="text-xs text-slate-500">
-            Real-time GNSS tracking of active field units
+          <p className="text-xs text-muted">
+            Real-time GNSS tracking of active field incidents and responding units
           </p>
         </div>
 
-        <div className="flex items-center gap-2 text-xs">
-          {viewIncident && (
-            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 border border-red-200 text-red-600 font-bold shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
-              {viewIncident.incidentCode}
-            </span>
-          )}
-          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white border border-slate-200 text-slate-600 shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-blue-500" />
-            {responders.length} Patrol Unit(s)
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-line text-slate-600 font-bold shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emergency" />
+            {pinnedIncidents.length} pinned
+          </span>
+          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-line text-slate-600 font-bold shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-brand-500" />
+            {onDutyUnits.length} unit(s)
           </span>
         </div>
       </div>
 
-      {/* Map + Sidebar Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Google Map Canvas */}
-        <div className="lg:col-span-3 relative rounded-3xl overflow-hidden border border-slate-200 bg-slate-100 h-[480px] select-none">
+      {/* Map + side panel layout */}
+      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
+        {/* Map canvas */}
+        <div className="xl:col-span-3 relative rounded-panel overflow-hidden border border-line bg-slate-100 h-[420px] sm:h-[560px] select-none">
           <LiveGoogleMap
             lat={mapLat}
             lng={mapLng}
@@ -114,61 +131,177 @@ export const ResponderMapView: React.FC<ResponderMapViewProps> = ({
             className="absolute inset-0"
           />
 
-          {/* Open in real Google Maps — overlay works in BOTH JS API and iframe modes */}
+          {/* Open in real Google Maps */}
           <button
             onClick={openGoogleMaps}
-            className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200 text-slate-700 text-[11px] font-black uppercase tracking-wide shadow-lg hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 active:scale-95 transition-all"
+            className="rc-focus-ring absolute bottom-3 right-3 z-10 flex items-center gap-1.5 px-3 py-2 rounded-ctl bg-white/95 backdrop-blur-md border border-line text-slate-700 text-[11px] font-black uppercase tracking-wide shadow-lift hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 active:scale-95 transition-all"
             title="Open the real Google Maps at this location (Street View)"
           >
             <ExternalLink className="w-3.5 h-3.5" />
-            OPEN IN GOOGLE MAPS
+            Open in Google Maps
           </button>
 
           {/* Top overlays */}
-          <div className="absolute top-3 left-3 right-3 z-10 flex items-center justify-between pointer-events-none">
-            <div className="flex items-center gap-2 bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-2xl border border-slate-700/60 shadow-lg text-white text-xs">
-              <Navigation className="w-3.5 h-3.5 text-blue-400" />
+          <div className="absolute top-3 left-3 right-3 z-10 flex items-start justify-between gap-2 pointer-events-none">
+            <div className="flex items-center gap-2 bg-navy-900/90 backdrop-blur-md px-3 py-1.5 rounded-ctl border border-navy-700/60 shadow-lift text-white text-xs">
+              <Navigation className="w-3.5 h-3.5 text-brand-300" />
               <span className="font-mono text-[11px] font-bold">
                 {mapLat.toFixed(4)}° N, {mapLng.toFixed(4)}° E
               </span>
               {!hasIncidentCoords && (override || gps) && (
                 <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md ${
                   override
-                    ? 'bg-violet-500/30 text-violet-200'
-                    : (gps?.source === 'ip' ? 'bg-amber-500/20 text-amber-300' : 'bg-blue-500/40 text-blue-200')
+                    ? 'bg-brand-500/25 text-brand-200'
+                    : (gps?.source === 'ip' ? 'bg-amber-500/20 text-amber-300' : 'bg-cyan-500/25 text-cyan-200')
                 }`}>
                   {override ? 'MANUAL — FIXED' : (gps?.source === 'ip' ? 'APPROX — IP' : 'GPS — LIVE')}
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-1.5">
-              {hasIncidentCoords && (
-                <button
-                  onClick={() => setForceMap((v) => !v)}
-                  className={`pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-[11px] font-black uppercase tracking-wide backdrop-blur-md transition-all active:scale-95 shadow-lg ${
-                    showStreetView
-                      ? 'bg-slate-900/85 border-slate-600 text-white hover:bg-slate-800'
-                      : 'bg-white/95 border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                  }`}
-                  title={showStreetView ? 'Back to the normal map' : 'Zoom into Street View (exact location)'}
-                >
-                  <span className={`w-2 h-2 rounded-full ${showStreetView ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-500'}`} />
-                  {showStreetView ? 'MAP VIEW' : 'STREET VIEW'}
-                </button>
-              )}
-            </div>
+            {hasIncidentCoords && (
+              <button
+                onClick={() => setForceMap((v) => !v)}
+                className={`pointer-events-auto flex items-center gap-1.5 px-3 py-1.5 rounded-ctl border text-[11px] font-black uppercase tracking-wide backdrop-blur-md transition-all active:scale-95 shadow-lift ${
+                  showStreetView
+                    ? 'bg-navy-900/85 border-navy-600 text-white hover:bg-navy-800'
+                    : 'bg-white/95 border-emerald-200 text-emerald-700 hover:bg-emerald-50'
+                }`}
+                title={showStreetView ? 'Back to the normal map' : 'Zoom into Street View (exact location)'}
+              >
+                <span className={`w-2 h-2 rounded-full ${showStreetView ? 'bg-emerald-400 animate-pulse' : 'bg-emerald-500'}`} />
+                {showStreetView ? 'Map View' : 'Street View'}
+              </button>
+            )}
           </div>
 
-          {/* Bottom text */}
+          {/* Bottom caption */}
           <div className="absolute bottom-3 left-3 z-10">
-            <span className="bg-slate-900/80 backdrop-blur-xs px-2.5 py-1 rounded-xl text-[10px] text-slate-300 border border-slate-800">
+            <span className="bg-navy-900/80 backdrop-blur-sm px-2.5 py-1 rounded-ctl text-[10px] text-slate-300 border border-navy-800">
               {viewIncident && hasIncidentCoords
                 ? `Tracking ${viewIncident.incidentCode}`
                 : (override?.label || gps?.label || 'Monitoring field units')}
               {showStreetView ? ' • Street View' : ''}
             </span>
           </div>
+        </div>
+
+        {/* Side panel */}
+        <div className="xl:col-span-1 space-y-4">
+          {/* Selected incident card */}
+          <section className="rc-panel p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-black text-ink text-sm flex items-center gap-2">
+                <Layers className="w-4 h-4 text-brand-600" />
+                Selected Incident
+              </h3>
+              {selectedIncident && (
+                <button
+                  onClick={() => setSelectedId(null)}
+                  className="rc-focus-ring text-[11px] font-bold text-brand-600 hover:text-brand-700 flex items-center gap-0.5"
+                  title="Return to the full incident list"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" /> Clear
+                </button>
+              )}
+            </div>
+
+            {viewIncident ? (
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-black text-ink">{viewIncident.incidentCode}</span>
+                  {viewIncident.source && (
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                      {viewIncident.source === 'HARDWARE' ? 'WEARABLE' : 'APP'}
+                    </span>
+                  )}
+                </div>
+                <p className="font-bold text-ink">{viewIncident.userName?.trim() || 'Unknown Citizen'}</p>
+                <p className="text-muted flex items-start gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  <span className="truncate">
+                    {viewIncident.location?.address || viewIncident.location?.barangay || 'Location unavailable'}
+                  </span>
+                </p>
+                {hasIncidentCoords ? (
+                  <p className="font-mono text-[10px] text-success">
+                    {viewIncident.location.lat.toFixed(6)}°, {viewIncident.location.lng.toFixed(6)}°
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-amber-600 font-bold">No GPS captured — showing city overview.</p>
+                )}
+              </div>
+            ) : (
+              <p className="text-[11px] text-muted">
+                No incident selected. Choose a pinned incident below to focus the map.
+              </p>
+            )}
+          </section>
+
+          {/* Incident markers list */}
+          <section className="rc-panel overflow-hidden">
+            <div className="px-4 py-3 border-b border-line">
+              <h3 className="font-black text-ink text-sm flex items-center gap-2">
+                <Radar className="w-4 h-4 text-emergency" />
+                Incident Markers
+              </h3>
+            </div>
+            {pinnedIncidents.length === 0 ? (
+              <p className="p-4 text-[11px] text-muted">
+                No incidents with GPS coordinates yet.
+              </p>
+            ) : (
+              <ul className="max-h-64 overflow-y-auto divide-y divide-line">
+                {pinnedIncidents.map((inc) => (
+                  <li key={inc.id}>
+                    <button
+                      onClick={() => setSelectedId(inc.id)}
+                      className={`w-full text-left px-4 py-2.5 transition-colors ${
+                        selectedIncident?.id === inc.id ? 'bg-brand-50/60' : 'hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-black text-ink">{inc.incidentCode}</span>
+                        <span className="text-[10px] font-bold text-muted uppercase">{inc.status}</span>
+                      </div>
+                      <p className="text-[11px] text-muted truncate">{inc.userName?.trim() || 'Unknown'}</p>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+          {/* Responding units — sectors/status only; coordinates are not fabricated. */}
+          <section className="rc-panel overflow-hidden">
+            <div className="px-4 py-3 border-b border-line">
+              <h3 className="font-black text-ink text-sm flex items-center gap-2">
+                <Radar className="w-4 h-4 text-brand-600" />
+                Field Units
+              </h3>
+            </div>
+            {onDutyUnits.length === 0 ? (
+              <p className="p-4 text-[11px] text-muted">No on-duty units reported.</p>
+            ) : (
+              <ul className="max-h-52 overflow-y-auto divide-y divide-line">
+                {onDutyUnits.map((r) => (
+                  <li key={r.id} className="px-4 py-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-ink truncate">{r.name}</span>
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
+                        r.status === 'Available'
+                          ? 'bg-emerald-50 text-success border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border-amber-200'
+                      }`}>
+                        {r.status}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted truncate">{r.unit} · Sector {r.currentSector}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       </div>
     </div>

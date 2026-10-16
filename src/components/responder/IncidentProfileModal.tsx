@@ -12,19 +12,20 @@ interface IncidentProfileModalProps {
 const statusPill = (status: string) => {
   switch (status) {
     case 'ACTIVE':
-      return 'bg-red-50 text-red-600 border-red-200';
+    case 'PENDING':
+      return 'bg-red-50 text-emergency border-red-200';
     case 'RESPONDING':
     case 'RESPONDER EN ROUTE':
     case 'ON SCENE':
     case 'WAIT FOR ME':
     case 'ON THE WAY':
-      return 'bg-blue-50 text-blue-600 border-blue-200';
+      return 'bg-amber-50 text-amber-700 border-amber-200';
     case 'RESOLVED':
-      return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+      return 'bg-emerald-50 text-success border-emerald-200';
     case 'CANCELLED':
       return 'bg-slate-100 text-slate-600 border-slate-200';
     default:
-      return 'bg-amber-50 text-amber-600 border-amber-200';
+      return 'bg-slate-100 text-slate-600 border-slate-200';
   }
 };
 
@@ -53,9 +54,19 @@ export const IncidentProfileModal: React.FC<IncidentProfileModalProps> = ({ inci
     loc?.address ||
     (loc?.barangay ? `${loc.barangay}${loc.city ? ', ' + loc.city : ''}` : 'Location unavailable');
 
+  const field = (icon: React.ReactNode, label: string, value: React.ReactNode, extra?: React.ReactNode) => (
+    <div className="p-2.5 rounded-card bg-slate-50 border border-line">
+      <span className="text-[9px] text-muted uppercase font-bold flex items-center gap-1">
+        {icon} {label}
+      </span>
+      <span className="font-bold text-ink block truncate">{value}</span>
+      {extra}
+    </div>
+  );
+
   return (
     <div
-      className={`fixed inset-0 z-50 ${pinned ? '' : 'flex items-center justify-center p-4'}`}
+      className={`fixed inset-0 z-50 ${pinned ? '' : 'flex items-center justify-center p-4 bg-navy-950/50 backdrop-blur-sm animate-fadeIn'}`}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -64,8 +75,8 @@ export const IncidentProfileModal: React.FC<IncidentProfileModalProps> = ({ inci
       <div
         className={`bg-white shadow-2xl overflow-y-auto space-y-3 ${
           pinned
-            ? 'absolute right-3 top-[104px] h-[calc(100vh-160px)] w-full max-w-md border border-slate-200 rounded-2xl p-5 animate-slideInRight shadow-2xl bg-white'
-            : 'w-full max-w-sm max-h-[70vh] border border-slate-200 rounded-2xl p-4'
+            ? 'absolute right-3 top-[104px] h-[calc(100vh-160px)] w-full max-w-md border border-line rounded-panel p-5 animate-slideInRight'
+            : 'w-full max-w-sm max-h-[70vh] border border-line rounded-panel p-4 animate-rise'
         }`}
         onClick={(e) => e.stopPropagation()}
       >
@@ -76,21 +87,21 @@ export const IncidentProfileModal: React.FC<IncidentProfileModalProps> = ({ inci
               <img
                 src={account.avatar}
                 alt={fullName}
-                className="w-11 h-11 rounded-full object-cover border border-slate-200 shrink-0"
+                className="w-11 h-11 rounded-full object-cover border border-line shrink-0"
               />
             ) : (
-              <div className="w-11 h-11 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-sm shrink-0">
+              <div className="w-11 h-11 rounded-full bg-brand-600 text-white flex items-center justify-center font-black text-sm shrink-0">
                 {initials(fullName)}
               </div>
             )}
             <div className="min-w-0">
-              <span className="text-[10px] font-mono font-black text-blue-600 uppercase tracking-wider block">
+              <span className="text-[10px] font-mono font-black text-brand-600 uppercase tracking-wider block">
                 {incident.incidentCode}
               </span>
-              <h3 className="text-base font-black text-slate-900 leading-tight truncate">{fullName}</h3>
+              <h3 className="text-base font-black text-ink leading-tight truncate">{fullName}</h3>
               <span
                 className={`inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider ${
-                  hasAccount ? 'text-emerald-600' : 'text-slate-400'
+                  hasAccount ? 'text-success' : 'text-muted'
                 }`}
               >
                 <span className={`w-1.5 h-1.5 rounded-full ${hasAccount ? 'bg-emerald-500' : 'bg-slate-300'}`} />
@@ -101,7 +112,7 @@ export const IncidentProfileModal: React.FC<IncidentProfileModalProps> = ({ inci
           <button
             onClick={onClose}
             aria-label="Close"
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:scale-95 transition-all shrink-0"
+            className="rc-focus-ring p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 active:scale-95 transition-all shrink-0"
           >
             <X className="w-4 h-4" />
           </button>
@@ -113,7 +124,7 @@ export const IncidentProfileModal: React.FC<IncidentProfileModalProps> = ({ inci
             {incident.status}
           </span>
           {incident.userPhone && incident.userPhone !== '—' && (
-            <span className="text-[11px] text-slate-500 font-mono flex items-center gap-1">
+            <span className="text-[11px] text-muted font-mono flex items-center gap-1">
               <PhoneCall className="w-3 h-3" />
               {incident.userPhone}
             </span>
@@ -122,91 +133,51 @@ export const IncidentProfileModal: React.FC<IncidentProfileModalProps> = ({ inci
 
         {/* Account profile */}
         <div className="space-y-2">
-          <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider block">
+          <span className="text-[9px] text-muted uppercase font-black tracking-wider block">
             Citizen Profile
           </span>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="col-span-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
-                <User className="w-3 h-3" /> Full Name
-              </span>
-              <span className="font-bold text-slate-900 block truncate">{fullName}</span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
-                <AtSign className="w-3 h-3" /> Username
-              </span>
-              <span className="font-bold text-slate-900 block truncate">{username || '—'}</span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
-                <User className="w-3 h-3" /> Gender
-              </span>
-              <span className="font-bold text-slate-900 block truncate">{account?.gender || '—'}</span>
-            </div>
-
-            <div className="col-span-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
-                <Mail className="w-3 h-3" /> Email
-              </span>
-              <span className="font-bold text-slate-900 block truncate">{account?.email || '—'}</span>
-            </div>
-
-            <div className="col-span-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Birthday / Age
-              </span>
-              <span className="font-bold text-slate-900 block truncate">
-                {account?.dateOfBirth || '—'}
-                {typeof account?.age === 'number' ? ` · ${account.age} yrs old` : ''}
-              </span>
-            </div>
+            {field(<User className="w-3 h-3" />, 'Full Name', fullName)}
+            {field(<AtSign className="w-3 h-3" />, 'Username', username || '—')}
+            {field(<User className="w-3 h-3" />, 'Gender', account?.gender || '—')}
+            {field(<Mail className="w-3 h-3" />, 'Email', account?.email || '—')}
+            {field(
+              <Calendar className="w-3 h-3" />,
+              'Birthday / Age',
+              `${account?.dateOfBirth || '—'}${typeof account?.age === 'number' ? ` · ${account.age} yrs old` : ''}`,
+            )}
           </div>
         </div>
 
         {/* Incident details */}
         <div className="space-y-2">
-          <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider block">
+          <span className="text-[9px] text-muted uppercase font-black tracking-wider block">
             Incident Details
           </span>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
-                <Clock className="w-3 h-3" /> Time
-              </span>
-              <span className="font-bold text-slate-900 block">{incident.timeActivated || '—'}</span>
-            </div>
-
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
-                <Calendar className="w-3 h-3" /> Date
-              </span>
-              <span className="font-bold text-slate-900 block">{incident.date || '—'}</span>
-            </div>
-
-            <div className="col-span-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
+            {field(<Clock className="w-3 h-3" />, 'Time', incident.timeActivated || '—')}
+            {field(<Calendar className="w-3 h-3" />, 'Date', incident.date || '—')}
+            <div className="col-span-2 p-2.5 rounded-card bg-slate-50 border border-line">
+              <span className="text-[9px] text-muted uppercase font-bold flex items-center gap-1">
                 <MapPin className="w-3 h-3" /> Location
               </span>
-              <span className="font-bold text-slate-900 block truncate">{locationLine}</span>
+              <span className="font-bold text-ink block truncate">{locationLine}</span>
               {hasLocation && (
-                <span className="font-mono text-[10px] text-emerald-600 block">
+                <span className="font-mono text-[10px] text-success block">
                   {loc.lat.toFixed(6)}°, {loc.lng.toFixed(6)}° · ±{loc.accuracyRadiusMeters}m
                   {loc.source === 'gps' ? ' (GPS)' : loc.source === 'override' ? ' (pinned)' : ''}
                 </span>
               )}
             </div>
 
-            <div className="col-span-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-              <span className="text-[9px] text-slate-500 uppercase font-bold flex items-center gap-1">
+            <div className="col-span-2 p-2.5 rounded-card bg-slate-50 border border-line">
+              <span className="text-[9px] text-muted uppercase font-bold flex items-center gap-1">
                 <Radio className="w-3 h-3" /> Assigned Responder
               </span>
-              <span className="font-bold text-slate-900 block truncate">
+              <span className="font-bold text-ink block truncate">
                 {incident.assignedResponder?.name || 'Unassigned'}
               </span>
-              <span className="text-[10px] text-slate-500 block">
+              <span className="text-[10px] text-muted block">
                 {incident.assignedResponder?.unit || '—'} · ETA: {incident.assignedResponder?.eta || 'Pending'}
               </span>
             </div>

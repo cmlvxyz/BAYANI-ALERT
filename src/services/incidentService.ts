@@ -521,6 +521,34 @@ class IncidentService {
   }
 
   /**
+   * Apply a refreshed GPS position pushed by the citizen app for an SOS that
+   * was sent before the device had a fix. Updates the active incident and its
+   * archived copy so the map/street view move to the real location.
+   */
+  public applyLocationUpdate(
+    incidentId: string,
+    location?: Incident['location'],
+    gpsStatus?: Incident['gpsStatus'],
+  ) {
+    if (!incidentId || !location) return;
+
+    const merge = (inc: Incident): Incident =>
+      normalizeLocation({
+        ...inc,
+        location: { ...inc.location, ...location },
+        ...(gpsStatus ? { gpsStatus } : {}),
+      });
+
+    if (this.activeIncident && this.activeIncident.id === incidentId) {
+      this.activeIncident = merge(this.activeIncident);
+    }
+
+    this.incidents = this.incidents.map((inc) => (inc.id === incidentId ? merge(inc) : inc));
+
+    this.notify();
+  }
+
+  /**
    * Merge an SMS delivery report that arrived over the Bridge from the backend.
    * Updates both the active incident and its archived copy (if present).
    */

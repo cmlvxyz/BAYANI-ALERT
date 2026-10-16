@@ -11,9 +11,11 @@
 import { Incident, SmsDispatch } from '../types';
 import { getSession } from './authClient';
 
-// Bridge base URL — overridable via VITE_BRIDGE_URL (e.g. http://192.168.1.5:8000
-// when Bayani App / Alert run on a different machine on the same network).
-const BRIDGE_URL = import.meta.env.VITE_BRIDGE_URL || 'http://localhost:8000';
+// Bridge base URL — defaults to the same host as the page (port 8000), so it
+// works from other PCs on the LAN. Override via VITE_BRIDGE_URL if needed.
+const BRIDGE_URL =
+  import.meta.env.VITE_BRIDGE_URL ||
+  `${window.location.protocol}//${window.location.hostname}:8000`;
 
 /** Authorization headers for the signed-in RC operator (when present). */
 function authHeaders(): Record<string, string> {
@@ -31,6 +33,7 @@ export interface ResponseBridgeHandlers {
   onDelete?: (incidentId: string) => void;
   onAccountsUpdate?: () => void;
   onAudioLive?: (payload: { incidentCode: string; audioUrl: string }) => void;
+  onLocationUpdate?: (payload: { id: string; location?: Incident['location']; gpsStatus?: Incident['gpsStatus'] }) => void;
 }
 
 export function connectBridge(handlers: ResponseBridgeHandlers): () => void {
@@ -72,6 +75,12 @@ export function connectBridge(handlers: ResponseBridgeHandlers): () => void {
         handlers.onAudioLive({
           incidentCode: String(msg.payload?.incidentCode ?? ''),
           audioUrl: String(msg.payload?.audioUrl ?? ''),
+        });
+      } else if (msg.source === 'citizen' && msg.type === 'location_update' && handlers.onLocationUpdate) {
+        handlers.onLocationUpdate({
+          id: String(msg.payload?.id ?? ''),
+          location: msg.payload?.location,
+          gpsStatus: msg.payload?.gpsStatus,
         });
       }
     } catch {

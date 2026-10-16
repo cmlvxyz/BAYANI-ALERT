@@ -67,16 +67,34 @@ async function seedAdmin() {
 await seedAdmin();
 
 const app = express();
-// Restrict browser cross-origin access to the two local apps (Citizen 4001,
-// Response Center 4000). Keeps the API from being callable from random pages.
+// Restrict browser cross-origin access to the local apps (Citizen 4001,
+// Response Center 4000) plus any machine on the private LAN — the apps are
+// opened from other PCs via this machine's LAN IP. Anything outside the
+// private network is rejected unless listed in CORS_ORIGINS.
 const ALLOWED_ORIGINS = String(process.env.CORS_ORIGINS || 'http://localhost:4000 http://localhost:4001 http://127.0.0.1:4000 http://127.0.0.1:4001')
   .split(/[\s,]+/)
   .map((s) => s.trim())
   .filter(Boolean);
+
+/** True when the origin's hostname is a private/loopback address. */
+function isPrivateOrigin(origin) {
+  let host;
+  try {
+    host = new URL(origin).hostname;
+  } catch {
+    return false;
+  }
+  if (host === 'localhost' || host === '::1' || host === '[::1]') return true;
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+      if (!origin || ALLOWED_ORIGINS.includes(origin) || isPrivateOrigin(origin)) return cb(null, true);
       cb(new Error('Origin not allowed by CORS'));
     },
   })

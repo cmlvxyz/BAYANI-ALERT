@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart3, TrendingUp, Clock, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { BarChart3, TrendingUp } from 'lucide-react';
 import { Incident } from '../../types';
 
 interface ResponderReportsViewProps {
@@ -17,7 +17,6 @@ function incidentTime(inc: Incident): number {
 export const ResponderReportsView: React.FC<ResponderReportsViewProps> = ({ incidents }) => {
   const total = incidents.length;
   const resolved = incidents.filter(i => i.status === 'RESOLVED').length;
-  const active = incidents.filter(i => i.status === 'WAIT FOR ME' || i.status === 'ON THE WAY').length;
 
   // Weekly Activation — galing sa totoong incidents ng system (kapareho ng
   // lumalabas sa Dashboard / Live Incidents), nahahati sa 7 linggong balon.
@@ -55,9 +54,9 @@ export const ResponderReportsView: React.FC<ResponderReportsViewProps> = ({ inci
     return acc;
   }, {});
   const vawcTypes = [
-    { type: 'Physical Abuse / Imminent Threat', color: 'bg-red-500' },
+    { type: 'Physical Abuse / Imminent Threat', color: 'bg-emergency' },
     { type: 'Psychological Harassment / Stalking', color: 'bg-amber-500' },
-    { type: 'Economic Deprivation / Threat', color: 'bg-blue-500' },
+    { type: 'Economic Deprivation / Threat', color: 'bg-brand-500' },
     { type: 'Awaiting Classification', color: 'bg-slate-400' },
   ].map((cat) => {
     const count = categoryCounts[cat.type] ?? 0;
@@ -66,78 +65,75 @@ export const ResponderReportsView: React.FC<ResponderReportsViewProps> = ({ inci
   });
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+      {/* Header */}
       <div>
-        <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <BarChart3 className="w-5 h-5 text-blue-600" />
-          <span>STATISTICAL REPORTS &amp; AUDIT</span>
+        <h2 className="text-lg font-black text-ink tracking-tight flex items-center gap-2">
+          <BarChart3 className="w-5 h-5 text-brand-600" />
+          <span>Statistical Reports &amp; Audit</span>
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-muted">
           Emergency response efficacy and RA 9262 case resolution metrics
         </p>
       </div>
 
       {/* KPI Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white border border-slate-200 p-4 rounded-3xl shadow-md">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Total Recorded</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">{total}</div>
-          <span className="text-[11px] text-slate-500">Past 30 days</span>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="rc-panel p-4">
+          <span className="text-[10px] font-bold text-muted uppercase tracking-wider block">Total Recorded</span>
+          <div className="text-2xl font-black text-ink mt-1">{total}</div>
+          <span className="text-[11px] text-muted">Past 30 days</span>
         </div>
 
-        <div className="bg-white border border-slate-200 p-4 rounded-3xl shadow-md">
-          <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block">Avg Response Time</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">—</div>
-          <span className="text-[11px] text-slate-500">Not tracked yet</span>
+        <div className="rc-panel p-4">
+          <span className="text-[10px] font-bold text-info uppercase tracking-wider block">Avg Response Time</span>
+          <div className="text-2xl font-black text-ink mt-1">—</div>
+          <span className="text-[11px] text-muted">Not tracked yet</span>
         </div>
 
-        <div className="bg-white border border-slate-200 p-4 rounded-3xl shadow-md">
-          <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">Resolution Rate</span>
-          <div className="text-2xl font-black text-blue-600 mt-1">
+        <div className="rc-panel p-4">
+          <span className="text-[10px] font-bold text-brand-600 uppercase tracking-wider block">Resolution Rate</span>
+          <div className="text-2xl font-black text-brand-600 mt-1">
             {total > 0 ? `${Math.round((resolved / total) * 100)}%` : '—'}
           </div>
-          <span className="text-[11px] text-slate-500">{resolved} of {total} resolved</span>
+          <span className="text-[11px] text-muted">{resolved} of {total} resolved</span>
         </div>
 
-        <div className="bg-white border border-slate-200 p-4 rounded-3xl shadow-md">
-          <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wider block">Evidence Preserved</span>
-          <div className="text-2xl font-black text-purple-600 mt-1">-</div>
-          <span className="text-[11px] text-slate-500">Cryptographically stamped</span>
+        <div className="rc-panel p-4">
+          <span className="text-[10px] font-bold text-brand-600 uppercase tracking-wider block">Evidence Preserved</span>
+          <div className="text-2xl font-black text-brand-600 mt-1">-</div>
+          <span className="text-[11px] text-muted">Cryptographically stamped</span>
         </div>
       </div>
 
-      {/* Incident Category & Monthly Trends Grid */}
+      {/* Incident Category & Weekly Trends */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Category breakdown */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-md">
-          <h3 className="font-extrabold text-slate-900 text-base">
-            Incidents by RA 9262 Category
-          </h3>
+        <section className="rc-panel p-5 space-y-4">
+          <h3 className="font-extrabold text-ink text-base">Incidents by RA 9262 Category</h3>
           <div className="space-y-3">
             {vawcTypes.map((t, idx) => (
               <div key={idx} className="space-y-1 text-xs">
                 <div className="flex justify-between font-medium">
                   <span className="text-slate-600">{t.type}</span>
-                  <span className="font-mono font-bold text-slate-900">{t.count} ({t.pct})</span>
+                  <span className="font-mono font-bold text-ink">{t.count} ({t.pct})</span>
                 </div>
                 <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                  <div className={`${t.color} h-full rounded-full`} style={{ width: t.pct }} />
+                  <div className={`${t.color} h-full rounded-full transition-all`} style={{ width: t.pct }} />
                 </div>
               </div>
             ))}
           </div>
-        </div>
+        </section>
 
         {/* Weekly Activation Trends — labeled bar chart */}
-        <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-md">
+        <section className="rc-panel p-5 space-y-4">
           <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="font-extrabold text-slate-900 text-base">
-                Weekly Activation Trends
-              </h3>
-              <p className="text-[11px] text-slate-500">BAWANI emergency activations</p>
+              <h3 className="font-extrabold text-ink text-base">Weekly Activation Trends</h3>
+              <p className="text-[11px] text-muted">BAYANI emergency activations</p>
             </div>
-            <span className="text-[10px] bg-blue-50 text-blue-700 font-mono px-2.5 py-1 rounded-full font-bold shrink-0">
+            <span className="text-[10px] bg-brand-50 text-brand-700 font-mono px-2.5 py-1 rounded-full font-bold shrink-0 border border-brand-100">
               WEEKLY
             </span>
           </div>
@@ -165,23 +161,23 @@ export const ResponderReportsView: React.FC<ResponderReportsViewProps> = ({ inci
                     <div className="relative flex-1 w-full flex flex-col items-center justify-end gap-1">
                       {/* Hover tooltip */}
                       <div className="absolute bottom-full mb-1.5 left-1/2 -translate-x-1/2 z-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                        <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap text-center">
+                        <div className="bg-navy-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-lg whitespace-nowrap text-center">
                           {d.label} — {d.count} activations
                         </div>
-                        <div className="w-2 h-2 rotate-45 bg-slate-900 absolute left-1/2 -translate-x-1/2 -bottom-1" />
+                        <div className="w-2 h-2 rotate-45 bg-navy-900 absolute left-1/2 -translate-x-1/2 -bottom-1" />
                       </div>
-                      <span className="text-[10px] font-mono text-slate-500 font-bold">{d.count}</span>
+                      <span className="text-[10px] font-mono text-muted font-bold">{d.count}</span>
                       <div
                         className="w-full rounded-t-lg transition-all group-hover:opacity-80"
                         style={{
                           height: `${Math.max((d.count / peakWeek) * 100, 4)}%`,
                           background: isPeak
-                            ? 'linear-gradient(180deg, #0ea5e9, #1d4ed8)'
-                            : 'linear-gradient(180deg, #60a5fa, #2563eb)',
+                            ? 'linear-gradient(180deg, #8b5cf6, #5b21b6)'
+                            : 'linear-gradient(180deg, #c4b5fd, #7c3aed)',
                         }}
                       />
                     </div>
-                    <span className="text-[11px] text-slate-500 font-bold">{d.label}</span>
+                    <span className="text-[11px] text-muted font-bold">{d.label}</span>
                   </div>
                 );
               })}
@@ -189,7 +185,7 @@ export const ResponderReportsView: React.FC<ResponderReportsViewProps> = ({ inci
           </div>
 
           {/* Footer — trend summary */}
-          <div className="flex flex-col items-start gap-1.5 pt-2 border-t border-slate-100 text-xs">
+          <div className="flex flex-col items-start gap-1.5 pt-2 border-t border-line text-xs">
             <div className="flex items-center gap-2 font-bold text-slate-700">
               {delta > 0
                 ? `Trending up by ${delta} activation${delta === 1 ? '' : 's'} this week`
@@ -198,15 +194,15 @@ export const ResponderReportsView: React.FC<ResponderReportsViewProps> = ({ inci
                   : totalRecorded > 0
                     ? 'Steady this week'
                     : 'No activations yet'}
-              {delta > 0 && <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />}
+              {delta > 0 && <TrendingUp className="h-3.5 w-3.5 text-success" />}
             </div>
-            <p className="text-[11px] text-slate-500 leading-tight">
+            <p className="text-[11px] text-muted leading-tight">
               {totalRecorded > 0
                 ? `Showing ${totalRecorded} emergency activation${totalRecorded === 1 ? '' : 's'} over the last 7 weeks`
                 : 'Waiting for the next emergency alert — counts populate live from actual activations'}
             </p>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

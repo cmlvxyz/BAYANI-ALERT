@@ -2,15 +2,15 @@
  * Bayani Alert - Response Center (Authority / Dispatcher Command Center)
  * “Safety in Every Step”
  *
- * Response Center web console for authorities: dashboard, live incidents,
- * dispatch map, responders, directory, reports and settings.
+ * Response Center web console for authorities: command center overview, live
+ * incidents, dispatch map, responders, directory, reports and settings.
  *
  * This project is SEPARATE from the Bayani App (citizen side, port 4001).
  * Incidents arrive from the citizen app / wearable through the shared
- * local incident service.
+ * local incident service and the real-time SSE bridge.
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import bayaniLogo from './assets/images/logo (2).png';
 import {
   ShieldAlert,
@@ -25,6 +25,8 @@ import {
   X,
   Battery,
   LogOut,
+  ChevronDown,
+  Activity,
 } from 'lucide-react';
 
 // Services
@@ -48,24 +50,44 @@ interface NavItem {
   key: ResponderNavTab;
   label: string;
   icon: React.FC<{ className?: string }>;
+  description: string;
 }
 
-const NAV_ITEMS: NavItem[] = [
-  { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { key: 'incidents', label: 'Live Incidents', icon: FileText },
-  { key: 'map', label: 'Dispatch Map', icon: MapPin },
-  { key: 'responders', label: 'Responders', icon: Radio },
-  { key: 'contacts', label: 'Directory', icon: Users },
-  { key: 'reports', label: 'Reports', icon: BarChart3 },
+/** Navigation organized into logical console groups. */
+const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+  {
+    title: 'Operations',
+    items: [
+      { key: 'dashboard', label: 'Command Center', icon: LayoutDashboard, description: 'Live operational overview' },
+      { key: 'incidents', label: 'Live Incidents', icon: FileText, description: 'Incoming SOS intake & case archive' },
+      { key: 'map', label: 'Dispatch Map', icon: MapPin, description: 'GNSS tracking & Street View' },
+    ],
+  },
+  {
+    title: 'Field & Data',
+    items: [
+      { key: 'responders', label: 'Responders', icon: Radio, description: 'On-duty field units' },
+      { key: 'contacts', label: 'Citizen Directory', icon: Users, description: 'Inter-agency liaison directory' },
+      { key: 'reports', label: 'Reports & Analytics', icon: BarChart3, description: 'Case metrics, trends & audit' },
+    ],
+  },
+  {
+    title: 'System',
+    items: [
+      { key: 'settings', label: 'Settings', icon: Settings, description: 'Agency configuration & evidence ops' },
+    ],
+  },
 ];
 
-const SETTINGS_ITEM: NavItem = { key: 'settings', label: 'Settings', icon: Settings };
+const FLAT_NAV: NavItem[] = NAV_GROUPS.flatMap((g) => g.items);
 
 export default function App() {
   const [navTab, setNavTab] = useState<ResponderNavTab>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [bridgeOnline, setBridgeOnline] = useState(false);
   const [session, setSessionState] = useState<AuthSession | null>(getSession());
+  const userMenuRef = useRef<HTMLDivElement | null>(null);
 
   const handleLogin = async (username: string, password: string) => {
     const s = await apiLogin(username, password);
@@ -77,14 +99,33 @@ export default function App() {
     apiLogout();
     setSessionState(null);
     setNavTab('dashboard');
+    setIsUserMenuOpen(false);
   };
 
   // Browser tab title — shows the current section at the top when navigating
   useEffect(() => {
-    const all = [...NAV_ITEMS, SETTINGS_ITEM];
-    const active = all.find((i) => i.key === navTab);
+    const active = FLAT_NAV.find((i) => i.key === navTab);
     document.title = active ? `${active.label} | Bayani Alert` : 'Bayani Alert';
   }, [navTab]);
+
+  // Close the operator menu on outside click / Escape.
+  useEffect(() => {
+    if (!isUserMenuOpen) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsUserMenuOpen(false);
+    };
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isUserMenuOpen]);
 
   // Telemetry & Incident State
   const [telemetry, setTelemetry] = useState<WearableDeviceTelemetry>(hardwareService.getTelemetry());
@@ -135,6 +176,8 @@ export default function App() {
       onDelete: (id) => incidentService.deleteIncident(id),
       onAccountsUpdate: () => void refreshOnlineAccounts(),
       onAudioLive: ({ incidentCode, audioUrl }) => setLiveAudio({ incidentCode, audioUrl }),
+      onLocationUpdate: ({ id, location, gpsStatus }) =>
+        incidentService.applyLocationUpdate(id, location, gpsStatus),
     });
 
     return () => {
@@ -243,7 +286,12 @@ export default function App() {
     );
   };
 
-  const isEmergencyActive = telemetry.event === 'SOS' || (activeIncident !== null && activeIncident.status !== 'RESOLVED' && activeIncident.status !== 'CANCELLED');
+  // Every unresolved SOS counts — several citizens can press at once.
+  const activeEmergencies = incidents.filter(
+    (inc) => inc.status !== 'RESOLVED' && inc.status !== 'CANCELLED',
+  );
+  const activeCount = activeEmergencies.length;
+  const isEmergencyActive = telemetry.event === 'SOS' || activeCount > 0;
 
   const goResponse = (tab: ResponderNavTab) => {
     setNavTab(tab);
@@ -266,6 +314,7 @@ export default function App() {
             responders={responders}
             onlineAccounts={onlineAccounts}
             liveAudio={liveAudio}
+            bridgeOnline={bridgeOnline}
             onNavigateTab={goResponse}
             onViewIncident={handleViewIncident}
             onUpdateStatus={handleUpdateStatus}
@@ -305,232 +354,266 @@ export default function App() {
   };
 
   const isActive = (key: ResponderNavTab) => navTab === key;
+  const currentNav = FLAT_NAV.find((i) => i.key === navTab);
+  const operatorName = session?.user.username?.toUpperCase() || 'OPERATOR';
 
   // Authentication gate — the Response Center requires an admin sign-in.
   if (!session) {
     return <RcLoginScreen onLogin={handleLogin} />;
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-blue-50 to-blue-200 text-slate-800 antialiased font-sans p-4 sm:p-6">
-      {/* ===== RESPONSE CENTER HEADER ===== */}
-      <header
-        id="bayani-rc-header"
-        className="sticky top-4 z-40 rounded-4xl border border-slate-200 bg-white/70 backdrop-blur-md shadow-sm px-4 sm:px-6 py-3"
-      >
-        <div className="flex items-center justify-between gap-3">
-          {/* Brand */}
-          <div className="flex items-center gap-2.5">
-            <img
-              src={bayaniLogo}
-              alt="Bayani Alert logo"
-              className="w-10 h-10 sm:w-11 sm:h-11 object-contain shrink-0"
-            />
-            <div className="min-w-0">
-              <h1 className="font-black text-slate-900 text-lg sm:text-xl tracking-wider uppercase leading-tight">
-                Bayani-Alert
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 font-medium leading-tight">
-                Response Center • Safety in Every Step
-              </p>
-            </div>
-          </div>
-
-          {/* Global status & access */}
-          <div className="flex items-center gap-2">
-            {/* System/emergency status */}
-            {isEmergencyActive ? (
-              <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-600 border border-red-500 text-white text-xs font-bold animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-                SOS ACTIVE
-              </span>
-            ) : (
-              <span className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 text-xs font-bold">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                SYSTEM NORMAL
-              </span>
-            )}
-
-            {/* Wearable battery (global, always visible) */}
-            <span className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-[11px] text-slate-600 font-bold">
-              <Battery className="w-3.5 h-3.5 text-emerald-400" />
-              {telemetry.battery}%
-            </span>
-
-            {/* Response center authority badge */}
-            <span className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-bold">
-              <ShieldAlert className="w-3.5 h-3.5 text-blue-400" />
-              AUTHORITY
-            </span>
-
-            {/* Bridge connection status */}
-            <span
-              title={bridgeOnline ? 'Connected to Bayani App (port 4001)' : 'Bridge offline — start bridge-server.mjs'}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-bold ${
-                bridgeOnline
-                  ? 'bg-blue-50 border-blue-200 text-blue-700'
-                  : 'bg-red-50 border-red-200 text-red-600'
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${bridgeOnline ? 'bg-blue-500' : 'bg-red-500'} animate-pulse`} />
-              {bridgeOnline ? 'BRIDGE LINK' : 'BRIDGE OFF'}
-            </span>
-
-            {/* Signed-in operator */}
-            <span className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-[11px] text-slate-600 font-bold">
-              <ShieldAlert className="w-3.5 h-3.5 text-blue-500" />
-              {session.user.username.toUpperCase()}
-            </span>
-
-            {/* Log out */}
-            <button
-              onClick={handleLogout}
-              aria-label="Log out"
-              title="Log out"
-              className="p-2 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 active:scale-95 transition-all"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
-
-            {/* Mobile menu button */}
-            <button
-              id="bayani-rc-mobile-menu-btn"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Open menu"
-              className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 active:scale-95 transition-all"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* ===== DESKTOP LAYOUT: SIDEBAR + MAIN ===== */}
-      <div className="flex items-start gap-4 w-full mt-4">
-        {/* Left Sidebar (desktop only) */}
-        <aside
-          id="bayani-rc-sidebar"
-          className="hidden lg:flex w-60 shrink-0 flex-col px-4 pt-4 pb-6 sticky top-[104px] h-[calc(100vh-160px)] self-start overflow-y-auto bg-white/70 backdrop-blur-md rounded-3xl border border-slate-200 shadow-sm"
-        >
-          <nav className="flex flex-col flex-1 gap-8 select-none">
-            {/* Top group */}
-            <div className="shrink-0">
-              <span className="text-xs font-mono uppercase tracking-widest text-slate-500 px-3 block mb-2 font-bold">
-                Response Center
-              </span>
-              <div className="flex flex-col gap-1.5">
-                {NAV_ITEMS.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.key);
-                  return (
-                    <button
-                      key={item.key}
-                      onClick={() => setNavTab(item.key)}
-                      className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-lg font-bold transition-all active:scale-[0.98] ${
-                        active
-                          ? 'bg-blue-600 text-white shadow-md'
-                          : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                      }`}
-                    >
-                      <Icon className="w-6 h-6" />
-                      <span>{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Settings pinned at the bottom */}
-            <div className="flex-1 flex flex-col min-h-0 justify-between">
-              <div />
-              <div className="shrink-0">
-                <span className="text-xs font-mono uppercase tracking-widest text-slate-500 px-3 block mb-2 font-bold">
-                  System
-                </span>
-                <div className="flex flex-col gap-1.5">
-                  <button
-                    key={SETTINGS_ITEM.key}
-                    onClick={() => setNavTab(SETTINGS_ITEM.key)}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-2xl text-lg font-bold transition-all active:scale-[0.98] ${
-                      isActive(SETTINGS_ITEM.key)
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-slate-500 hover:text-slate-900 hover:bg-slate-100'
-                    }`}
-                  >
-                    <Settings className="w-6 h-6" />
-                    <span>{SETTINGS_ITEM.label}</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 min-w-0 pb-20 lg:pb-0" id="bayani-rc-main-content">
-          <div className="bg-white/70 backdrop-blur-md h-[calc(100vh-160px)] overflow-y-auto p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-sm">
-            {renderResponseScreen()}
-          </div>
-        </main>
-      </div>
-
-      {/* ===== MOBILE FULL MENU SHEET ===== */}
-      {isMobileMenuOpen && (
-        <div
-          id="bayani-rc-mobile-menu"
-          className="lg:hidden fixed inset-0 z-50 bg-white/95 backdrop-blur-md p-4 flex flex-col animate-fadeIn"
-        >
-          <div className="flex justify-between items-center pb-4 border-b border-slate-200">
-            <div className="flex items-center gap-2">
-              <img
-                src={bayaniLogo}
-                alt="Bayani Alert logo"
-                className="w-9 h-9 object-contain shrink-0"
-              />
-              <span className="text-sm font-black text-slate-900 uppercase tracking-wider">
-                Bayani-Alert Response Center
-              </span>
-            </div>
-            <button
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-              aria-label="Close menu"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto pt-4 space-y-1.5">
-            {[...NAV_ITEMS, SETTINGS_ITEM].map((item) => {
+  /** Shared navigation list markup for the desktop rail. */
+  const navList = (variant: 'desktop' | 'mobile') => (
+    <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6" aria-label="Console navigation">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.title}>
+          <p className="px-3 mb-2 text-[10px] font-mono font-bold uppercase tracking-[0.16em] text-slate-500">
+            {group.title}
+          </p>
+          <div className="space-y-1">
+            {group.items.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.key);
               return (
                 <button
                   key={item.key}
-                  onClick={() => {
-                    setNavTab(item.key);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 p-3 rounded-2xl text-sm font-bold ${
-                    active ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-100'
+                  onClick={() => goResponse(item.key)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`rc-focus-ring group relative w-full flex items-center gap-3 px-3 py-2.5 rounded-ctl text-sm font-semibold transition-colors ${
+                    active
+                      ? 'bg-navy-800 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-navy-800/60'
                   }`}
                 >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
+                  <span
+                    className={`absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 rounded-r-full transition-all ${
+                      active ? 'bg-brand-500' : 'bg-transparent'
+                    }`}
+                  />
+                  <Icon className={`w-4 h-4 shrink-0 ${active ? 'text-brand-300' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                  <span className="truncate">{item.label}</span>
+                  {item.key === 'incidents' && activeCount > 0 && (
+                    <span className="ml-auto px-1.5 py-0.5 rounded-full bg-emergency text-white text-[10px] font-black tabular-nums">
+                      {activeCount}
+                    </span>
+                  )}
                 </button>
               );
             })}
           </div>
         </div>
-      )}
+      ))}
+    </nav>
+  );
 
-      {/* Emergency indicator fallback for color-blind accessibility */}
-      {isEmergencyActive && (
-        <div
-          aria-live="assertive"
-          className="sr-only"
+  return (
+    <div className="min-h-screen bg-canvas text-ink">
+      {/* ===== DESKTOP SIDEBAR ===== */}
+      <aside
+        id="bayani-rc-sidebar"
+        className="hidden lg:flex fixed inset-y-0 left-0 z-40 w-64 flex-col bg-navy-900 border-r border-navy-800"
+      >
+        <div className="flex items-center gap-3 px-4 h-16 shrink-0 border-b border-navy-800">
+          <img src={bayaniLogo} alt="Bayani Alert logo" className="w-9 h-9 object-contain shrink-0" />
+          <div className="min-w-0">
+            <h1 className="font-black text-white text-sm tracking-wider uppercase leading-none">
+              Bayani-Alert
+            </h1>
+            <p className="text-[10px] text-slate-500 font-mono mt-0.5">RESPONSE CENTER</p>
+          </div>
+        </div>
+
+        {navList('desktop')}
+
+        <div className="shrink-0 border-t border-navy-800 p-3">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-ctl bg-navy-850">
+            <div className="w-9 h-9 rounded-full bg-brand-600 text-white flex items-center justify-center font-black text-xs shrink-0">
+              {operatorName.slice(0, 2)}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-white truncate">{operatorName}</p>
+              <p className="text-[10px] text-slate-500 truncate">{session.user.email || 'Authority'}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              aria-label="Log out"
+              title="Log out"
+              className="rc-focus-ring p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-navy-800 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* ===== CONTENT COLUMN ===== */}
+      <div className="lg:pl-64 flex flex-col min-h-screen">
+        {/* ===== TOP BAR ===== */}
+        <header
+          id="bayani-rc-header"
+          className="sticky top-0 z-30 bg-white/90 backdrop-blur-md border-b border-line"
         >
-          Emergency alert active. A response is being coordinated.
+          <div className="flex items-center gap-3 px-4 sm:px-6 h-16">
+            {/* Mobile menu */}
+            <button
+              id="bayani-rc-mobile-menu-btn"
+              onClick={() => setIsMobileMenuOpen(true)}
+              aria-label="Open navigation"
+              className="lg:hidden rc-focus-ring p-2 rounded-ctl text-slate-500 hover:text-ink hover:bg-slate-100 active:scale-95 transition-all"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            {/* Page title */}
+            <div className="min-w-0 flex-1">
+              <h2 className="text-base sm:text-lg font-black text-ink tracking-tight truncate">
+                {currentNav?.label ?? 'Command Center'}
+              </h2>
+              <p className="text-[11px] sm:text-xs text-muted truncate">
+                {currentNav?.description ?? 'Live operational overview'}
+              </p>
+            </div>
+
+            {/* Status cluster */}
+            <div className="flex items-center gap-2">
+              {/* Emergency / normal */}
+              {isEmergencyActive ? (
+                <span className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-full bg-emergency text-white text-xs font-bold shadow-sm">
+                  <span className="w-2 h-2 rounded-full bg-white/90 animate-pulse" />
+                  <span className="hidden sm:inline">{activeCount || 1}</span> SOS ACTIVE
+                </span>
+              ) : (
+                <span className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-success text-xs font-bold">
+                  <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                  SYSTEM NORMAL
+                </span>
+              )}
+
+              {/* Bridge connection */}
+              <span
+                title={bridgeOnline ? 'Connected to Bayani App (port 4001)' : 'Bridge offline — start bridge-server.mjs'}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-bold ${
+                  bridgeOnline
+                    ? 'bg-cyan-50 border-cyan-200 text-info'
+                    : 'bg-red-50 border-red-200 text-emergency'
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${bridgeOnline ? 'bg-info' : 'bg-emergency'} animate-pulse`} />
+                <span className="hidden md:inline">{bridgeOnline ? 'BRIDGE LINK' : 'BRIDGE OFF'}</span>
+              </span>
+
+              {/* Wearable battery */}
+              <span className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-slate-100 border border-line text-[11px] text-slate-600 font-bold">
+                <Battery className="w-3.5 h-3.5 text-success" />
+                {telemetry.battery}%
+              </span>
+
+              {/* Operator menu */}
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  onClick={() => setIsUserMenuOpen((v) => !v)}
+                  aria-haspopup="menu"
+                  aria-expanded={isUserMenuOpen}
+                  className="rc-focus-ring flex items-center gap-2 pl-1.5 pr-2 py-1.5 rounded-full border border-line hover:bg-slate-50 transition-colors"
+                >
+                  <span className="w-7 h-7 rounded-full bg-navy-900 text-white flex items-center justify-center font-black text-[10px]">
+                    {operatorName.slice(0, 2)}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isUserMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute right-0 top-full mt-2 w-60 rounded-panel bg-white border border-line shadow-lift p-2 animate-fadeIn"
+                  >
+                    <div className="px-3 py-2 border-b border-line mb-1">
+                      <p className="text-xs font-black text-ink truncate">{operatorName}</p>
+                      <p className="text-[11px] text-muted truncate">{session.user.email || 'Authority account'}</p>
+                      <span className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-navy-900 text-white text-[9px] font-black uppercase tracking-wide">
+                        <ShieldAlert className="w-3 h-3 text-brand-300" /> Response Center Authority
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      role="menuitem"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-ctl text-xs font-bold text-slate-600 hover:text-emergency hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Sign out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Emergency banner — high-visibility, non-color-only cue */}
+          {isEmergencyActive && (
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="flex items-center gap-2 px-4 sm:px-6 py-2 bg-emergency text-white text-xs font-bold"
+            >
+              <Activity className="w-4 h-4 shrink-0" />
+              <span>
+                {activeCount} active emergency{activeCount === 1 ? '' : 'ies'} awaiting response — review the Command Center.
+              </span>
+              <button
+                onClick={() => goResponse('dashboard')}
+                className="ml-auto px-3 py-1 rounded-ctl bg-white/15 hover:bg-white/25 border border-white/30 transition-colors"
+              >
+                Open
+              </button>
+            </div>
+          )}
+        </header>
+
+        {/* ===== MAIN CONTENT ===== */}
+        <main id="bayani-rc-main-content" className="flex-1 px-4 sm:px-6 py-5 sm:py-6">
+          <div className="mx-auto w-full max-w-[1600px]">{renderResponseScreen()}</div>
+        </main>
+      </div>
+
+      {/* ===== MOBILE NAVIGATION DRAWER ===== */}
+      {isMobileMenuOpen && (
+        <div
+          id="bayani-rc-mobile-menu"
+          className="lg:hidden fixed inset-0 z-50 flex"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="absolute inset-0 bg-navy-950/60 backdrop-blur-sm animate-fadeIn"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div className="relative w-72 max-w-[80%] h-full flex flex-col bg-navy-900 border-r border-navy-800 animate-slideInRight">
+            <div className="flex items-center justify-between px-4 h-16 shrink-0 border-b border-navy-800">
+              <div className="flex items-center gap-2.5">
+                <img src={bayaniLogo} alt="Bayani Alert logo" className="w-8 h-8 object-contain" />
+                <span className="text-xs font-black text-white uppercase tracking-wider">
+                  Response Center
+                </span>
+              </div>
+              <button
+                onClick={() => setIsMobileMenuOpen(false)}
+                aria-label="Close navigation"
+                className="p-2 rounded-ctl text-slate-400 hover:text-white hover:bg-navy-800 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {navList('mobile')}
+            <div className="shrink-0 border-t border-navy-800 p-3">
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-ctl text-xs font-bold text-slate-300 hover:text-white hover:bg-navy-800 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign out ({operatorName})
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

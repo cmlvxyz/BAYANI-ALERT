@@ -1,11 +1,88 @@
 @import "tailwindcss";
 
+/* ================================================================
+   BAYANI-ALERT RESPONSE CENTER — DESIGN SYSTEM
+   Single source of truth for the whole console. Views reference
+   these tokens via Tailwind utilities (bg-brand-600, bg-navy-900,
+   text-ink, text-muted, border-line, rounded-panel, shadow-soft…)
+   so there is exactly ONE design system across every screen.
+
+   Palette direction:
+   - Brand  = purple (primary actions, active nav, focus).
+   - Surfaces = deep navy for the command shell (sidebar / top bar)
+     and clean light neutral surfaces for content.
+   - Red = SOS / critical. Green = resolved / healthy.
+     Amber = pending / warning. Cyan = connectivity / informational.
+   ================================================================ */
+@theme {
+  /* Brand — purple */
+  --color-brand-50: #f5f3ff;
+  --color-brand-100: #ede9fe;
+  --color-brand-200: #ddd6fe;
+  --color-brand-300: #c4b5fd;
+  --color-brand-400: #a78bfa;
+  --color-brand-500: #8b5cf6;
+  --color-brand-600: #7c3aed;
+  --color-brand-700: #6d28d9;
+  --color-brand-800: #5b21b6;
+  --color-brand-900: #4c1d95;
+
+  /* Command shell — deep navy */
+  --color-navy-950: #060a16;
+  --color-navy-900: #0b1224;
+  --color-navy-850: #0f1830;
+  --color-navy-800: #141f3a;
+  --color-navy-700: #1e2b4a;
+  --color-navy-600: #2b3a63;
+  --color-navy-500: #3d4f80;
+
+  /* Ink & neutrals */
+  --color-ink: #0f172a;
+  --color-muted: #64748b;
+  --color-line: #e2e8f0;
+  --color-canvas: #eef1f7;
+
+  /* Semantic */
+  --color-emergency: #dc2626;
+  --color-emergency-deep: #991b1b;
+  --color-success: #059669;
+  --color-warn: #d97706;
+  --color-info: #0891b2;
+
+  /* Radii — restrained, professional */
+  --radius-ctl: 10px;
+  --radius-field: 12px;
+  --radius-card: 16px;
+  --radius-panel: 20px;
+
+  /* Elevation */
+  --shadow-soft: 0 1px 2px rgba(15, 23, 42, 0.05), 0 10px 24px -12px rgba(15, 23, 42, 0.16);
+  --shadow-lift: 0 2px 6px rgba(15, 23, 42, 0.07), 0 20px 40px -18px rgba(15, 23, 42, 0.28);
+  --shadow-emergency: 0 8px 20px -8px rgba(220, 38, 38, 0.5), 0 22px 44px -20px rgba(220, 38, 38, 0.45);
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 @layer base {
+  html {
+    overflow-x: clip;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #1e293b;
-    background-color: #e0f2fe;
+    font-family: var(--font-sans);
+    color: var(--color-ink);
+    background-color: var(--color-canvas);
     overflow-x: hidden;
+  }
+
+  ::selection {
+    background: var(--color-brand-600);
+    color: #fff;
   }
 }
 
@@ -18,6 +95,7 @@
   scrollbar-width: none;
 }
 
+/* ---------------------------------------------------------------- motion */
 @keyframes pulse-ring {
   0% {
     transform: scale(0.95);
@@ -52,11 +130,54 @@
   animation: slide-in-right 0.22s ease-out;
 }
 
-/* Hide scrollbar for horizontal nav bars */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+.animate-fadeIn {
+  animation: fade-in 0.18s var(--ease-out-soft);
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-rise {
+  animation: rise-in 0.28s var(--ease-out-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------- surfaces */
+/* Thin, reusable console surface helpers built on the tokens above. */
+.rc-panel {
+  background: #ffffff;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-soft);
+}
+
+.rc-focus-ring:focus-visible {
+  outline: 2px solid var(--color-brand-500);
+  outline-offset: 2px;
 }

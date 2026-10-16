@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShieldAlert, Lock, User, LogIn, Eye, EyeOff } from 'lucide-react';
+import { ShieldAlert, Lock, User, LogIn, Eye, EyeOff, Activity, Radio, Waypoints } from 'lucide-react';
 import bayaniLogo from '../../assets/images/logo (2).png';
 
 interface Props {
@@ -27,31 +27,68 @@ export default function RcLoginScreen({ onLogin }: Props) {
     }
   };
 
-  return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-sky-100 via-blue-50 to-blue-200 text-slate-800 antialiased font-sans flex">
-      {/* ===== LEFT — blue pane (logo + branding), curved on the right ===== */}
-      <div
-        className="hidden lg:flex w-[42%] min-w-[380px] shrink-0 bg-gradient-to-b from-sky-400 to-blue-600 relative overflow-hidden flex-col items-center justify-center text-center p-10"
-        style={{ borderRadius: '0 3rem 3rem 0' }}
-      >
-        {/* faint decorative glow */}
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-        <div className="absolute -bottom-28 -left-20 w-80 h-80 rounded-full bg-blue-900/20 blur-3xl pointer-events-none" />
+  const features = [
+    { icon: Activity, title: 'Live SOS monitoring', desc: 'Real-time incident intake streamed over the bridge.' },
+    { icon: Waypoints, title: 'GNSS dispatch map', desc: 'Locate citizens and units with Street View.' },
+    { icon: Radio, title: 'Responder coordination', desc: 'Assign units and track case status.' },
+  ];
 
-        <div className="relative z-10 flex flex-col items-center">
-          <img src={bayaniLogo} alt="Bayani Alert logo" className="w-32 h-32 object-contain drop-shadow-2xl" />
-          <h1 className="font-black text-white text-3xl tracking-wider uppercase mt-5">
-            Bayani-Alert
-          </h1>
-          <p className="text-sm text-blue-100 font-medium mt-1">
-            Response Center • Safety in Every Step
+  return (
+    <div className="min-h-screen w-full bg-canvas text-ink antialiased font-sans flex">
+      {/* ===== LEFT — navy command pane ===== */}
+      <div className="hidden lg:flex w-[44%] min-w-[400px] shrink-0 bg-navy-900 relative overflow-hidden flex-col justify-between p-10 text-white">
+        {/* decorative glows */}
+        <div className="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-brand-600/25 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-32 -left-24 w-96 h-96 rounded-full bg-info/10 blur-3xl pointer-events-none" />
+        <div
+          className="absolute inset-0 opacity-[0.06] pointer-events-none"
+          style={{
+            backgroundImage:
+              'linear-gradient(rgba(255,255,255,.9) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.9) 1px, transparent 1px)',
+            backgroundSize: '44px 44px',
+          }}
+        />
+
+        <div className="relative z-10 flex items-center gap-3">
+          <img src={bayaniLogo} alt="Bayani Alert logo" className="w-10 h-10 object-contain" />
+          <div>
+            <h1 className="font-black text-lg tracking-wider uppercase leading-none">Bayani-Alert</h1>
+            <p className="text-[10px] text-slate-400 font-mono mt-0.5">RESPONSE CENTER</p>
+          </div>
+        </div>
+
+        <div className="relative z-10">
+          <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 border border-white/15 text-[10px] font-black uppercase tracking-[0.16em] text-brand-200">
+            <ShieldAlert className="w-3.5 h-3.5" /> Restricted Access
+          </span>
+          <h2 className="font-black text-3xl xl:text-4xl tracking-tight mt-5 leading-tight">
+            Emergency Operations<br />&amp; Dispatch Console
+          </h2>
+          <p className="text-sm text-slate-400 font-medium mt-3 max-w-sm">
+            Command center for authorities coordinating VAWC and public-safety emergencies in real time.
           </p>
 
-          <span className="mt-8 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/15 border border-white/25 text-white text-[11px] font-black uppercase tracking-widest">
-            <ShieldAlert className="w-4 h-4 text-blue-200" />
-            Restricted Access
-          </span>
+          <div className="mt-8 space-y-3.5">
+            {features.map((f) => {
+              const Icon = f.icon;
+              return (
+                <div key={f.title} className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-ctl bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 text-brand-300" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white leading-none">{f.title}</p>
+                    <p className="text-[11px] text-slate-400 mt-1">{f.desc}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
+
+        <p className="relative z-10 text-[11px] text-slate-500 font-medium">
+          Safety in Every Step · Bayani Alert Response Center
+        </p>
       </div>
 
       {/* ===== RIGHT — login form ===== */}
@@ -59,30 +96,30 @@ export default function RcLoginScreen({ onLogin }: Props) {
         <div className="w-full max-w-md">
           {/* Mobile-only compact brand */}
           <div className="lg:hidden flex flex-col items-center mb-6 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-b from-sky-400 to-blue-600 flex items-center justify-center shadow-lg">
-              <img src={bayaniLogo} alt="Bayani Alert logo" className="w-11 h-11 object-contain" />
+            <div className="w-14 h-14 rounded-panel bg-navy-900 flex items-center justify-center shadow-lift">
+              <img src={bayaniLogo} alt="Bayani Alert logo" className="w-10 h-10 object-contain" />
             </div>
-            <h1 className="font-black text-slate-900 text-xl tracking-wider uppercase mt-3">
+            <h1 className="font-black text-ink text-xl tracking-wider uppercase mt-3">
               Bayani-Alert
             </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              Response Center • Authority Sign-in
+            <p className="text-xs text-muted font-medium">
+              Response Center · Authority Sign-in
             </p>
           </div>
 
-          <div className="bg-white/90 backdrop-blur-sm rounded-3xl border border-slate-200/80 shadow-xl p-6 sm:p-8 space-y-4">
-            <div className="mb-1">
-              <h2 className="font-black text-slate-900 text-xl tracking-tight">
+          <div className="bg-white rounded-panel border border-line shadow-lift p-6 sm:p-8">
+            <div className="mb-5">
+              <h2 className="font-black text-ink text-xl tracking-tight">
                 Authority Sign-in
               </h2>
-              <p className="text-xs text-slate-500 font-medium">
-                Response Center Console
+              <p className="text-xs text-muted font-medium mt-1">
+                Authenticate to access the Response Center console.
               </p>
             </div>
 
             <form onSubmit={submit} className="space-y-4">
               <div>
-                <label className="text-xs font-black text-slate-600 uppercase tracking-wider block mb-1.5">
+                <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-1.5">
                   Username
                 </label>
                 <div className="relative">
@@ -92,13 +129,13 @@ export default function RcLoginScreen({ onLogin }: Props) {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Username"
                     autoComplete="username"
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none text-sm"
+                    className="rc-focus-ring w-full pl-9 pr-3 py-2.5 rounded-field border border-line bg-slate-50 focus:bg-white focus:border-brand-500 focus:outline-none text-sm transition-colors"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-black text-slate-600 uppercase tracking-wider block mb-1.5">
+                <label className="text-[11px] font-black text-slate-600 uppercase tracking-wider block mb-1.5">
                   Password
                 </label>
                 <div className="relative">
@@ -109,7 +146,7 @@ export default function RcLoginScreen({ onLogin }: Props) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Password"
                     autoComplete="current-password"
-                    className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:outline-none text-sm"
+                    className="rc-focus-ring w-full pl-9 pr-10 py-2.5 rounded-field border border-line bg-slate-50 focus:bg-white focus:border-brand-500 focus:outline-none text-sm transition-colors"
                   />
                   <button
                     type="button"
@@ -123,7 +160,7 @@ export default function RcLoginScreen({ onLogin }: Props) {
               </div>
 
               {error && (
-                <p className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+                <p role="alert" className="text-xs font-bold text-emergency bg-red-50 border border-red-200 rounded-field px-3 py-2">
                   {error}
                 </p>
               )}
@@ -131,14 +168,14 @@ export default function RcLoginScreen({ onLogin }: Props) {
               <button
                 type="submit"
                 disabled={busy}
-                className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-60 text-white text-xs font-extrabold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                className="rc-focus-ring w-full py-2.5 rounded-field bg-brand-600 hover:bg-brand-700 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 transition-colors active:scale-[0.99]"
               >
                 <LogIn className="w-4 h-4" />
-                {busy ? 'SIGNING IN…' : 'SIGN IN'}
+                {busy ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
 
-            <p className="text-center text-[11px] text-slate-400 font-medium">
+            <p className="text-center text-[11px] text-slate-400 font-medium mt-5">
               Restricted access — authorized personnel only.
             </p>
           </div>
